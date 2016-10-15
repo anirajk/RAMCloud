@@ -244,7 +244,7 @@ def default(
     This function is used as the invocation function for most tests;
     it simply invokes ClusterPerf via cluster.run and prints the result.
     """
-    cluster.run(client='%s/ClusterPerf %s %s' %
+    cluster.run(client='sudo %s/ClusterPerf %s %s' %
             (config.hooks.get_remote_obj_path(),
              flatten_args(client_args), name), **cluster_args)
     print(get_client_log(), end='')

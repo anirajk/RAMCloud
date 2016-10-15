@@ -34,7 +34,7 @@
 // WARNING: These extra logging calls may (read: will likely) make the system
 // unstable. The additional file IO on the dispatch thread will cause service
 // gaps that prevent servers from responding to pings quickly enough to prevent
-// eviction from the cluster.
+// eviction from the cluster./
 // #define LOG_RPCS 1
 
 namespace RAMCloud {

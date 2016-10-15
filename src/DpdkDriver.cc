@@ -127,6 +127,7 @@ DpdkDriver::DpdkDriver(Context* context,
             bandwidthGbps = localServiceLocator->getOption<int>("gbs");
         } catch (ServiceLocator::NoSuchKeyException& e) {}
     }
+    LOG(ERROR, "bandwidthGbps:%u", bandwidthGbps);
     queueEstimator.setBandwidth(1000*bandwidthGbps);
     maxTransmitQueueSize = (uint32_t) (static_cast<double>(bandwidthGbps)
             * MAX_DRAIN_TIME / 8.0);
@@ -217,20 +218,25 @@ DpdkDriver::DpdkDriver(Context* context,
     // and activate the port.
     rte_eth_rx_queue_setup(portId, 0, NDESC, 0, NULL, packetPool);
     rte_eth_tx_queue_setup(portId, 0, NDESC, 0, NULL);
-    ret = rte_eth_dev_start(portId);
-    if (ret != 0) {
-        throw DriverException(HERE, format(
-                "Couldn't start port %u, error %d (%s)", portId,
-                ret, strerror(ret)));
-    }
-
+   
     // set the MTU that the NIC port should support
+    // This method require that the port should ben stopped.
+    // Moving rte_eth_dev_start below this.
+
+
     ret = rte_eth_dev_set_mtu(portId, static_cast<uint16_t>(MAX_PAYLOAD_SIZE +
             static_cast<uint32_t>(sizeof(NetUtil::EthernetHeader))));
     if (ret != 0) {
         throw DriverException(HERE, format(
                 "Failed to set the MTU on Ethernet port  %u: %s",
                 portId, rte_strerror(rte_errno)));
+    }
+
+    ret = rte_eth_dev_start(portId);
+    if (ret != 0) {
+        throw DriverException(HERE, format(
+                "Couldn't start port %u, error %d (%s)", portId,
+                ret, strerror(ret)));
     }
 
     // create an in-memory ring, used as a software loopback in order to handle
@@ -331,7 +337,9 @@ DpdkDriver::receivePackets(int maxPackets,
             continue;
         }
         PacketBuf* buffer = packetBufPool.construct();
-
+	char *tempdata = rte_pktmbuf_mtod(m, char *);
+	auto& eth_header = *reinterpret_cast<EthernetHeader*>(tempdata);
+	LOG(ERROR, "Eth header dest:%u %u %u %u %u %u src: %u %u %u %u %u %u type:%u", eth_header.destAddress[0], eth_header.destAddress[1], eth_header.destAddress[2], eth_header.destAddress[3], eth_header.destAddress[4], eth_header.destAddress[5], eth_header.sourceAddress[0], eth_header.sourceAddress[1], eth_header.sourceAddress[2], eth_header.sourceAddress[3], eth_header.sourceAddress[4], eth_header.sourceAddress[5], eth_header.etherType);
         if (!hasHardwareFilter) {
             // Perform packet filtering by software to skip irrelevant
             // packets such as ipmi or kernel TCP/IP traffics.

@@ -84,7 +84,8 @@ BasicTransport::BasicTransport(Context* context, const ServiceLocator* locator,
     // Atom cluster) where threads can get descheduled by the kernel for
     // 10-30ms. This can result in delays in handling network packets, and
     // we don't want those delays to result in RPC timeouts.
-    , timeoutIntervals(40)
+    , timeoutIntervals(500)
+    //, timeoutIntervals(40)
     , pingIntervals(3)
 {
     // Set up the timer to trigger at 2 ms intervals. We use this choice
@@ -688,6 +689,7 @@ BasicTransport::handlePacket(Driver::Received* received)
 {
     // The following method retrieves a header from a packet
     CommonHeader* common = received->getOffset<CommonHeader>(0);
+    //LOG(ERROR, "got packet from %s", received->sender->toString().c_str());
     if (common == NULL) {
         RAMCLOUD_CLOG(WARNING, "packet from %s too short (%u bytes)",
                 received->sender->toString().c_str(), received->len);
@@ -741,9 +743,13 @@ BasicTransport::handlePacket(Driver::Received* received)
                     driver->release(payload);
                     return;
                 }
-                timeTrace("client received ALL_DATA, sequence %u, length %u",
+		timeTrace("client received ALL_DATA, sequence %u, length %u",
                         downCast<uint32_t>(header->common.rpcId.sequence),
                         length);
+                
+                LOG(ERROR, "client received ALL_DATA, sequence %u, length %u from %s",
+                        downCast<uint32_t>(header->common.rpcId.sequence),
+                        length,received->sender->toString().c_str());
                 Driver::PayloadChunk::appendToBuffer(clientRpc->response,
                         payload + sizeof32(AllDataHeader),
                         header->messageLength, driver, payload);
