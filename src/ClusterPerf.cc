@@ -3645,6 +3645,12 @@ indexScalability()
     cluster->dropIndex(lookupTable, indexId);
 }
 
+void
+loadBalance_motivation()
+{
+    ;
+}
+
 // This benchmark measures the multiread times for objects distributed across
 // multiple master servers such that there is one object located on each master
 // server.
@@ -6210,6 +6216,7 @@ TestInfo tests[] = {
     {"transactionContention", transactionContention},
     {"transactionDistRandom", transactionDistRandom},
     {"transactionThroughput", transactionThroughput},
+    {"loadBalance_motivation", loadBalance_motivation},
     {"multiWrite_oneMaster", multiWrite_oneMaster},
     {"multiRead_oneMaster", multiRead_oneMaster},
     {"multiRead_oneObjectPerMaster", multiRead_oneObjectPerMaster},

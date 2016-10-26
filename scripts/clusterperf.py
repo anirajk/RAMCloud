@@ -658,6 +658,7 @@ graph_tests = [
     Test("indexScalability", indexScalability),
     Test("indexReadDist", indexReadDist),
     Test("indexWriteDist", indexWriteDist),
+    Test("loadBalance_motivation", default),
     Test("multiRead_general", multiOp),
     Test("multiRead_generalRandom", multiOp),
     Test("multiRead_oneMaster", multiOp),
