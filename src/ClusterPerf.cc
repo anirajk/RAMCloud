@@ -3648,7 +3648,17 @@ indexScalability()
 void
 loadBalance_motivation()
 {
-    ;
+    const uint8_t numIndexlets = downCast<uint8_t>(numIndexlet);
+
+    if (clientIndex > 0) {
+        return;
+    }
+
+    uint8_t indexId = 1;
+
+    cluster->createTable("loadBalance_motivation", numIndexlets);
+    uint64_t lookupTable = cluster->getTableId("loadBalance_motivation");
+    cluster->createIndex(lookupTable, indexId, 0 /*index type*/, numIndexlets);
 }
 
 // This benchmark measures the multiread times for objects distributed across
