@@ -3650,15 +3650,14 @@ loadBalance_motivation()
 {
     const uint16_t keyLengthB = 30;
     const int objectCount = 50000000;
-    const uint8_t numIndexlets = downCast<uint8_t>(numIndexlet);
     const uint8_t numKeys = 2;
+    const uint8_t indexId = 1;
+    const uint8_t numIndexlets = downCast<uint8_t>(numIndexlet);
     const int numObjectsPerIndexlet = objectCount/numIndexlets;
 
     if (clientIndex > 0) {
         return;
     }
-
-    uint8_t indexId = 1;
 
     cluster->createTable("loadBalance_motivation", numIndexlets);
     uint64_t lookupTable = cluster->getTableId("loadBalance_motivation");
@@ -3678,15 +3677,23 @@ loadBalance_motivation()
         for (int i = 0; i < numObjectsPerIndexlet; i++) {
             int intKey = randomized[i];
 
-            // TODO: Recheck if the below keys will be unique.
-
             char primaryKey[keyLengthB];
             snprintf(primaryKey, sizeof(primaryKey), "%c:%dp%0*d",
                     firstkey, intkey, keyLengthB, 0);
 
             char secondaryKey[keyLengthB];
             snprintf(secondaryKey, sizeof(secondaryKey), "%c:p%0*d",
-                    firstkey, keyLengthB - 4, intKey);
+                    firstkey, keyLengthB - 3, intKey);
+
+            KeyInfo keyList[2];
+            keyList[0].keyLength = keyLengthB;
+            keyList[0].key = primaryKey;
+            keyList[1].keyLength = keyLengthB;
+            keyList[1].key = secondaryKey;
+
+            Buffer value;
+            fillBuffer(value, objectSize, lookupTable,
+                    keyList[0].key, keyList[0].keyLength);
         }
     }
 }
