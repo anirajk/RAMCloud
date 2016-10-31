@@ -401,6 +401,8 @@ class WorkloadGenerator {
         delete[] keys;
         delete[] charValues;
         delete[] objects;
+
+        #undef BATCH_SIZE
     }
 
     /**
@@ -3648,42 +3650,41 @@ indexScalability()
 void
 loadBalance_motivation()
 {
+    if (clientIndex > 0) {
+        return;
+    }
+
     const uint16_t keyLengthB = 30;
-    const int objectCount = 50000000;
+    const int objectCount = 46000000;
     const uint8_t numKeys = 2;
     const uint8_t indexId = 1;
     const uint8_t numIndexlets = downCast<uint8_t>(numIndexlet);
     const int numObjectsPerIndexlet = objectCount/numIndexlets;
 
-    if (clientIndex > 0) {
-        return;
-    }
-
     cluster->createTable("loadBalance_motivation", numIndexlets);
     uint64_t lookupTable = cluster->getTableId("loadBalance_motivation");
     cluster->createIndex(lookupTable, indexId, 0 /*index type*/, numIndexlets);
 
-    // TODO: Fix the location of indexlets and tablets through a set of
-    // migrations. This is to take care of situations where the number of
-    // servers > tableSpan + numIndexlets. With the current implementation,
-    // this will result in a subset of masters with only tablets or only
-    // indexlets.
+#define BATCH_SIZE 1000
+
+    MultiWriteObject* objectBatch[BATCH_SIZE];
 
     std::vector<uint32_t> randomized =
             generateRandListFrom0UpTo(numObjectsPerIndexlet);
 
     for (int j = 0; j < numIndexlets; j++) {
         char firstKey = static_cast<char>('a' + j);
+        int k = 0;
         for (int i = 0; i < numObjectsPerIndexlet; i++) {
             int intKey = randomized[i];
 
             char primaryKey[keyLengthB];
             snprintf(primaryKey, sizeof(primaryKey), "%c:%dp%0*d",
-                    firstkey, intkey, keyLengthB, 0);
+                    firstKey, intKey, keyLengthB, 0);
 
             char secondaryKey[keyLengthB];
-            snprintf(secondaryKey, sizeof(secondaryKey), "%c:p%0*d",
-                    firstkey, keyLengthB - 3, intKey);
+            snprintf(secondaryKey, sizeof(secondaryKey), "%c:s%0*d",
+                    firstKey, keyLengthB - 4, intKey);
 
             KeyInfo keyList[2];
             keyList[0].keyLength = keyLengthB;
@@ -3694,8 +3695,35 @@ loadBalance_motivation()
             Buffer value;
             fillBuffer(value, objectSize, lookupTable,
                     keyList[0].key, keyList[0].keyLength);
+
+            k = i % BATCH_SIZE;
+            objectBatch[k] = new MultiWriteObject(lookupTable,
+                    value.getRange(0, objectSize), objectSize, numKeys,
+                    keyList);
+
+            if (k == BATCH_SIZE - 1) {
+                cluster->multiWrite(objectBatch,
+                        static_cast<uint32_t>(BATCH_SIZE));
+
+                for (int l = 0; l < BATCH_SIZE; l++) {
+                    delete objectBatch[l];
+                }
+            }
+        }
+
+        if (k < BATCH_SIZE - 1) {
+            cluster->multiWrite(objectBatch, static_cast<uint32_t>(k));
+
+            for (int i = 0; i < k; i++) {
+                delete objectBatch[i];
+            }
         }
     }
+
+cluster->dropIndex(lookupTable, indexId);
+cluster->dropTable("loadBalance_motivation");
+
+#undef BATCH_SIZE
 }
 
 // This benchmark measures the multiread times for objects distributed across
