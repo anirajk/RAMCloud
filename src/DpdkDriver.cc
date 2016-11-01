@@ -217,14 +217,7 @@ DpdkDriver::DpdkDriver(Context* context,
     // and activate the port.
     rte_eth_rx_queue_setup(portId, 0, NDESC, 0, NULL, packetPool);
     rte_eth_tx_queue_setup(portId, 0, NDESC, 0, NULL);
-    ret = rte_eth_dev_start(portId);
-    if (ret != 0) {
-        throw DriverException(HERE, format(
-                "Couldn't start port %u, error %d (%s)", portId,
-                ret, strerror(ret)));
-    }
 
-    // set the MTU that the NIC port should support
     ret = rte_eth_dev_set_mtu(portId, static_cast<uint16_t>(MAX_PAYLOAD_SIZE +
             static_cast<uint32_t>(sizeof(NetUtil::EthernetHeader))));
     if (ret != 0) {
@@ -233,6 +226,15 @@ DpdkDriver::DpdkDriver(Context* context,
                 portId, rte_strerror(rte_errno)));
     }
 
+
+    ret = rte_eth_dev_start(portId);
+    if (ret != 0) {
+        throw DriverException(HERE, format(
+                "Couldn't start port %u, error %d (%s)", portId,
+                ret, strerror(ret)));
+    }
+
+    // set the MTU that the NIC port should support
     // create an in-memory ring, used as a software loopback in order to handle
     // packets that are addressed to the localhost.
     loopbackRing = rte_ring_create("dpdk_loopback_ring", 4096,

@@ -159,7 +159,10 @@ class EmulabClusterHooks:
 
     def kill_procs(self):
         log("Killing existing processes")
-        self.remote_func('sudo pkill -f RAMCloud')
+	try:
+            self.remote_func('sudo pkill -f RAMCloud')
+	except:
+	    pass
 
     def create_log_dir(self):
         log("creating log directories")
@@ -179,7 +182,7 @@ class EmulabClusterHooks:
     def cluster_enter(self, cluster):
         self.cluster = cluster
         log('== Connecting to Emulab via %s ==' % self.hosts[0][0])
-        #self.kill_procs()
+        self.kill_procs()
         self.send_code()
         self.compile_code()
         self.create_log_dir()

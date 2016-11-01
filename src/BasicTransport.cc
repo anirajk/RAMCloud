@@ -84,7 +84,7 @@ BasicTransport::BasicTransport(Context* context, const ServiceLocator* locator,
     // Atom cluster) where threads can get descheduled by the kernel for
     // 10-30ms. This can result in delays in handling network packets, and
     // we don't want those delays to result in RPC timeouts.
-    , timeoutIntervals(40)
+    , timeoutIntervals(400)
     , pingIntervals(3)
 {
     // Set up the timer to trigger at 2 ms intervals. We use this choice

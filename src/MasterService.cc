@@ -1057,7 +1057,7 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
     uint64_t start = Cycles::rdtsc();
     uint64_t inittime = start;
     uint64_t now;
-    double elapsed;
+    uint64_t elapsed;
     uint64_t tableId = reqHdr->tableId;
     uint64_t firstKeyHash = reqHdr->firstKeyHash;
     uint64_t lastKeyHash = reqHdr->lastKeyHash;
@@ -1081,7 +1081,7 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
     now = Cycles::rdtsc();
     elapsed = Cycles::toMicroseconds(now - start);
     start = now;
-    LOG(WARNING, "Time elapsed from start of migrateservice::migrateTablet in finding tablet %.2f microseconds", elapsed);
+    LOG(WARNING, "Time elapsed from start of migrateservice::migrateTablet in finding tablet %lu microseconds", elapsed);
 
     if (receiver == serverId) {
         LOG(WARNING, "Migrating to myself doesn't make much sense");
@@ -1100,7 +1100,7 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
     now = Cycles::rdtsc();
     elapsed = Cycles::toMicroseconds(now - start);
     start = now;
-    LOG(WARNING, "Time elapsed in prepForMigration %.2f microseconds", elapsed);
+    LOG(WARNING, "Time elapsed in prepForMigration %lu microseconds", elapsed);
 
 
     LogPosition newOwnerLogHead = MasterClient::getHeadOfLog(
@@ -1109,7 +1109,7 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
     now = Cycles::rdtsc();
     elapsed = Cycles::toMicroseconds(now - start);
     start = now;
-    LOG(WARNING, "Time elapsed in getHeadofLog %.2f microseconds", elapsed);
+    LOG(WARNING, "Time elapsed in getHeadofLog %lu microseconds", elapsed);
 
 
 
@@ -1143,7 +1143,7 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
     now = Cycles::rdtsc();
     elapsed = Cycles::toMicroseconds(now - start);
     start = now;
-    LOG(WARNING, "Time elapsed in Phase 1 Scan %.2f microseconds", elapsed);
+    LOG(WARNING, "Time elapsed in Phase 1 Scan %lu microseconds", elapsed);
 
 
     // Phase 2: block new writes and let current writes finish
@@ -1157,7 +1157,7 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
     now = Cycles::rdtsc();
     elapsed = Cycles::toMicroseconds(now - start);
     start = now;
-    LOG(WARNING, "Time elapsed in Phase 2 block writes and wait %.2f microseconds", elapsed);
+    LOG(WARNING, "Time elapsed in Phase 2 block writes and wait %lu microseconds", elapsed);
 
 
 
@@ -1179,7 +1179,7 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
     now = Cycles::rdtsc();
     elapsed = Cycles::toMicroseconds(now - start);
     start = now;
-    LOG(WARNING, "Time elapsed in Phase 3 iterating remaining and wait %.2f microseconds", elapsed);
+    LOG(WARNING, "Time elapsed in Phase 3 iterating remaining and wait %lu microseconds", elapsed);
 
 
     if (transferSeg) {
@@ -1191,7 +1191,7 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
     now = Cycles::rdtsc();
     elapsed = Cycles::toMicroseconds(now - start);
     start = now;
-    LOG(WARNING, "Time elapsed in optional send of last %.2f microseconds", elapsed);
+    LOG(WARNING, "Time elapsed in optional send of last %lu microseconds", elapsed);
 
 
     }
@@ -1206,7 +1206,7 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
     now = Cycles::rdtsc();
     elapsed = Cycles::toMicroseconds(now - start);
     start = now;
-    LOG(WARNING, "Time elapsed in reassign ownership %.2f microseconds", elapsed);
+    LOG(WARNING, "Time elapsed in reassign ownership %lu microseconds", elapsed);
 
 
 
@@ -1235,11 +1235,11 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
     now = Cycles::rdtsc();
     elapsed = Cycles::toMicroseconds(now - start);
     start = now;
-    LOG(WARNING, "Time elapsed in housekeeping %.2f microseconds", elapsed);
+    LOG(WARNING, "Time elapsed in housekeeping %lu microseconds", elapsed);
 
     elapsed = Cycles::toMicroseconds(now - inittime);
 
-    LOG(WARNING, "Time elapsed in total for migrateTablet %.2f microseconds", elapsed);
+    LOG(WARNING, "Time elapsed in total for migrateTablet %lu microseconds", elapsed);
 }
 
 /**

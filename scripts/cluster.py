@@ -35,9 +35,9 @@ import time
 from optparse import OptionParser
 
 # Locations of various RAMCloud executables.
-coordinator_binary = '%s/coordinator' % config.hooks.get_remote_obj_path()
-server_binary = '%s/server' % config.hooks.get_remote_obj_path()
-ensure_servers_bin = '%s/ensureServers' % config.hooks.get_remote_obj_path()
+coordinator_binary = 'sudo %s/coordinator' % config.hooks.get_remote_obj_path()
+server_binary = 'sudo %s/server' % config.hooks.get_remote_obj_path()
+ensure_servers_bin = 'sudo %s/ensureServers' % config.hooks.get_remote_obj_path()
 
 # valgrind
 valgrind_command = ''
@@ -455,7 +455,7 @@ class Cluster(object):
         client_args = ' '.join(args[1:])
         clients = []
         for i, client_host in enumerate(hosts):
-            command = ('%s %s -C %s --numClients %d --clientIndex %d '
+            command = ('sudo %s %s -C %s --numClients %d --clientIndex %d '
                        '--logFile %s/client%d.%s.log %s' %
                        (valgrind_command,
                         client_bin, self.coordinator_locator, num_clients,
@@ -535,7 +535,7 @@ def run(
                                    # (if backup_disks_per_server= 2).
         timeout=20,                # How many seconds to wait for the
                                    # clients to complete.
-        coordinator_args='',       # Additional arguments for the
+        coordinator_args=' --reset',       # Additional arguments for the
                                    # coordinator.
         master_args='',            # Additional arguments for each server
                                    # that runs a master
@@ -637,7 +637,9 @@ def run(
             coordinator_host = cluster.hosts[len(cluster.hosts)-1]
         coordinator = cluster.start_coordinator(coordinator_host,
                                                 coordinator_args)
-        if disjunct:
+        
+	time.sleep(15)
+	if disjunct:
             cluster.hosts.pop(0)
 
         if old_master_host:
@@ -657,7 +659,10 @@ def run(
                 args += ' %s' % backup_args
                 backups_started += 1
                 disk_args = disk1 if backup_disks_per_server == 1 else disk2
+	    time.sleep(10)
             cluster.start_server(host, args, backup=backup, disk=disk_args)
+	    if host == cluster.hosts[1]:
+		time.sleep(15)
             masters_started += 1
 
         if disjunct:
