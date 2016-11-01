@@ -916,6 +916,10 @@ MasterService::migrateSingleLogEntry(
         uint64_t lastKeyHash,
         ServerId receiver)
 {
+    uint64_t start = Cycles::rdtsc();
+    uint64_t init = start;
+    uint64_t now;
+    uint64_t elapsed;
     LogEntryType type = it.getType();
     if (type != LOG_ENTRY_TYPE_OBJ &&
         type != LOG_ENTRY_TYPE_OBJTOMB &&
@@ -970,7 +974,10 @@ MasterService::migrateSingleLogEntry(
             break;
         }
     }
-
+    now = Cycles::rdtsc();
+    elapsed = Cycles::toNanoseconds(now-start);
+    LOG(WARNING, "Spent %lu ns in getting hashes", elapsed);
+    start = now;
     // Skip if not applicable.
     if (entryTableId != tableId) {
         TEST_LOG("%s not migrated; tableId doesn't match",
@@ -1011,19 +1018,35 @@ MasterService::migrateSingleLogEntry(
 
     entryTotals[type]++;
     totalBytes += buffer.size();
-
+    now = Cycles::rdtsc();
+    elapsed = Cycles::toNanoseconds(now-start);
+    LOG(WARNING, "Spent %lu ns in checks", elapsed);
+    start = now;
+    
     if (!transferSeg)
         transferSeg.construct();
+
+    now = Cycles::rdtsc();
+    elapsed = Cycles::toNanoseconds(now-start);
+    LOG(WARNING, "Spent %lu ns creating buffers", elapsed);
+    start = now;
+    
+
+
 
     // If we can't fit it, send the current buffer and retry.
     if (!transferSeg->append(type, buffer)) {
         transferSeg->close();
-        LOG(DEBUG, "Sending migration segment");
+        LOG(WARNING, "Sending migration segment");
         if (expect_true(receiver != ServerId{})) {
             MasterClient::receiveMigrationData(context, receiver,
                     transferSeg.get(), tableId, firstKeyHash);
         }
-
+    now = Cycles::rdtsc();
+    elapsed = Cycles::toNanoseconds(now-start);
+    LOG(WARNING, "Spent %lu ns transmitting", elapsed);
+    start = now;
+ 
         transferSeg.destroy();
         transferSeg.construct();
 
@@ -1038,6 +1061,10 @@ MasterService::migrateSingleLogEntry(
 
     TEST_LOG("Migrated log entry type %s",
             LogEntryTypeHelpers::toString(type));
+    now = Cycles::rdtsc();
+    elapsed = Cycles::toNanoseconds(now-init);
+    LOG(WARNING, "Spent %lu ns in total migrating entry", elapsed);
+    
     return STATUS_OK;
 }
 
@@ -1054,10 +1081,11 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
         WireFormat::MigrateTablet::Response* respHdr,
         Rpc* rpc)
 {
-    uint64_t start = Cycles::rdtsc();
+    /*uint64_t start = Cycles::rdtsc();
     uint64_t inittime = start;
     uint64_t now;
-    uint64_t elapsed;
+    double elapsed;
+    */
     uint64_t tableId = reqHdr->tableId;
     uint64_t firstKeyHash = reqHdr->firstKeyHash;
     uint64_t lastKeyHash = reqHdr->lastKeyHash;
@@ -1078,11 +1106,12 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
         respHdr->common.status = STATUS_UNKNOWN_TABLET;
         return;
     }
+/*
     now = Cycles::rdtsc();
-    elapsed = Cycles::toMicroseconds(now - start);
+    elapsed = Cycles::toSeconds(now - start);
     start = now;
-    LOG(WARNING, "Time elapsed from start of migrateservice::migrateTablet in finding tablet %lu microseconds", elapsed);
-
+    LOG(WARNING, "Time elapsed from start of migrateservice::migrateTablet in finding tablet %.6f seconds", elapsed);
+*/
     if (receiver == serverId) {
         LOG(WARNING, "Migrating to myself doesn't make much sense");
         respHdr->common.status = STATUS_REQUEST_FORMAT_ERROR;
@@ -1097,20 +1126,21 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
 
     MasterClient::prepForMigration(context, receiver, tableId,
             firstKeyHash, lastKeyHash);
+/*
     now = Cycles::rdtsc();
-    elapsed = Cycles::toMicroseconds(now - start);
+    elapsed = Cycles::toSeconds(now - start);
     start = now;
-    LOG(WARNING, "Time elapsed in prepForMigration %lu microseconds", elapsed);
-
+    LOG(WARNING, "Time elapsed in prepForMigration %.6f seconds", elapsed);
+*/
 
     LogPosition newOwnerLogHead = MasterClient::getHeadOfLog(
             context, receiver);
-
+/*
     now = Cycles::rdtsc();
-    elapsed = Cycles::toMicroseconds(now - start);
+    elapsed = Cycles::toSeconds(now - start);
     start = now;
-    LOG(WARNING, "Time elapsed in getHeadofLog %lu microseconds", elapsed);
-
+    LOG(WARNING, "Time elapsed in getHeadofLog %.6f seconds", elapsed);
+*/
 
 
     LOG(NOTICE, "Migrating tablet [0x%lx,0x%lx] in tableId %lu to %s",
@@ -1140,11 +1170,12 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
             it.next();
         }
     }
+/*
     now = Cycles::rdtsc();
-    elapsed = Cycles::toMicroseconds(now - start);
+    elapsed = Cycles::toSeconds(now - start);
     start = now;
-    LOG(WARNING, "Time elapsed in Phase 1 Scan %lu microseconds", elapsed);
-
+    LOG(WARNING, "Time elapsed in Phase 1 Scan %.6f seconds", elapsed);
+*/
 
     // Phase 2: block new writes and let current writes finish
     if (it.onHead()) {
@@ -1154,13 +1185,14 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
         // Wait for the remainder of already running writes to finish.
         LogProtector::wait(context, Transport::ServerRpc::APPEND_ACTIVITY);
     }
-    now = Cycles::rdtsc();
-    elapsed = Cycles::toMicroseconds(now - start);
+/*  
+  now = Cycles::rdtsc();
+    elapsed = Cycles::toSeconds(now - start);
     start = now;
-    LOG(WARNING, "Time elapsed in Phase 2 block writes and wait %lu microseconds", elapsed);
+    LOG(WARNING, "Time elapsed in Phase 2 block writes and wait %.6f seconds", elapsed);
 
 
-
+*/
 
 
 
@@ -1176,11 +1208,11 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
                 receiver);
         if (error) return;
     }
-    now = Cycles::rdtsc();
-    elapsed = Cycles::toMicroseconds(now - start);
+  /*  now = Cycles::rdtsc();
+    elapsed = Cycles::toSeconds(now - start);
     start = now;
-    LOG(WARNING, "Time elapsed in Phase 3 iterating remaining and wait %lu microseconds", elapsed);
-
+    LOG(WARNING, "Time elapsed in Phase 3 iterating remaining and wait %.6f seconds", elapsed);
+*/
 
     if (transferSeg) {
         transferSeg->close();
@@ -1188,11 +1220,11 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
         MasterClient::receiveMigrationData(context, receiver,
                 transferSeg.get(), tableId, firstKeyHash);
         transferSeg.destroy();
-    now = Cycles::rdtsc();
-    elapsed = Cycles::toMicroseconds(now - start);
+  /*  now = Cycles::rdtsc();
+    elapsed = Cycles::toSeconds(now - start);
     start = now;
-    LOG(WARNING, "Time elapsed in optional send of last %lu microseconds", elapsed);
-
+    LOG(WARNING, "Time elapsed in optional send of last %.6f seconds", elapsed);
+*/
 
     }
 
@@ -1203,11 +1235,11 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
     CoordinatorClient::reassignTabletOwnership(context,
             tableId, firstKeyHash, lastKeyHash, receiver,
             newOwnerLogHead.getSegmentId(), newOwnerLogHead.getSegmentOffset());
-    now = Cycles::rdtsc();
-    elapsed = Cycles::toMicroseconds(now - start);
+  /*  now = Cycles::rdtsc();
+    elapsed = Cycles::toSeconds(now - start);
     start = now;
-    LOG(WARNING, "Time elapsed in reassign ownership %lu microseconds", elapsed);
-
+    LOG(WARNING, "Time elapsed in reassign ownership %.6f seconds", elapsed);
+*/
 
 
     LOG(NOTICE, "Migration succeeded for tablet [0x%lx,0x%lx] in "
@@ -1232,14 +1264,15 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
 
     // Removed unnecessary prepared transaction operations.
     transactionManager.removeOrphanedOps();
-    now = Cycles::rdtsc();
-    elapsed = Cycles::toMicroseconds(now - start);
+ /*   now = Cycles::rdtsc();
+    elapsed = Cycles::toSeconds(now - start);
     start = now;
-    LOG(WARNING, "Time elapsed in housekeeping %lu microseconds", elapsed);
+    LOG(WARNING, "Time elapsed in housekeeping %.6f seconds", elapsed);
 
-    elapsed = Cycles::toMicroseconds(now - inittime);
+    elapsed = Cycles::toSeconds(now - inittime);
 
-    LOG(WARNING, "Time elapsed in total for migrateTablet %lu microseconds", elapsed);
+    LOG(WARNING, "Time elapsed in total for migrateTablet %.6f seconds", elapsed);
+*/
 }
 
 /**
@@ -1794,7 +1827,11 @@ MasterService::receiveMigrationData(
     uint64_t tableId = reqHdr->tableId;
     uint64_t firstKeyHash = reqHdr->firstKeyHash;
     uint32_t segmentBytes = reqHdr->segmentBytes;
-
+    uint64_t start = Cycles::rdtsc();
+    uint64_t init = start;
+    uint64_t now;
+    uint64_t elapsed;
+  
     LOG(NOTICE, "Receiving %u bytes of migration data for tablet [0x%lx,??] "
             "in tableId %lu", segmentBytes, firstKeyHash, tableId);
 
@@ -1826,10 +1863,20 @@ MasterService::receiveMigrationData(
         respHdr->common.status = STATUS_REQUEST_FORMAT_ERROR;
         return;
     }
+    now = Cycles::rdtsc();
+    elapsed = Cycles::toNanoseconds(now-start);
+    LOG(WARNING, "In receive: Spent %lu ns in finding destination", elapsed);
+    start = now;
+
     const void* segmentMemory = rpc->requestPayload->getRange(
            reqHdr->keyLength, segmentBytes);
     SegmentIterator it(segmentMemory, segmentBytes, certificate);
     it.checkMetadataIntegrity();
+    now = Cycles::rdtsc();
+    elapsed = Cycles::toNanoseconds(now-start);
+    LOG(WARNING, "In receive: Spent %lu ns in checking metadata integrity", elapsed);
+    start = now;
+
 
     SideLog sideLog(objectManager.getLog());
     if (reqHdr->isIndexletData) {
@@ -1850,7 +1897,16 @@ MasterService::receiveMigrationData(
     } else {
         objectManager.replaySegment(&sideLog, it);
     }
+    now = Cycles::rdtsc();
+    elapsed = Cycles::toNanoseconds(now-start);
+    LOG(WARNING, "In receive: Spent %lu ns in replaying segment", elapsed);
+    start = now;
     sideLog.commit();
+    now = Cycles::rdtsc();
+    elapsed = Cycles::toNanoseconds(now-start);
+    LOG(WARNING, "In receive: Spent %lu ns in commiting sidelog", elapsed);
+    elapsed = Cycles::toNanoseconds(now-init);
+    LOG(WARNING, "In receive: Spent %lu ns in total", elapsed);
 }
 
 /**
