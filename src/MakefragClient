@@ -171,7 +171,7 @@ $(OBJDIR)/migrateTablet: $(OBJDIR)/MigrateTabletMain.o $(OBJDIR)/OptionParser.o 
 	@mkdir -p $(@D)
 	$(CXX) $(LDFLAGS) -o $@ $^ -L$(OBJDIR) $(LIBS)
 
-.PHONY: client client-lib client-lib-static client-lib-shared recovery ensureServers
+.PHONY: client client-lib client-lib-static client-lib-shared recovery ensureServers migrateTablet
 
 client-lib-static: $(OBJDIR)/libramcloud.a
 client-lib-shared: $(OBJDIR)/libramcloud.so
@@ -180,4 +180,4 @@ client-lib: client-lib-static client-lib-shared
 client: $(OBJDIR)/client $(OBJDIR)/ensureServers $(OBJDIR)/libramcloud.a $(OBJDIR)/libramcloud.so $(OBJDIR)/LogCleanerBenchmark
 recovery: $(OBJDIR)/recovery $(OBJDIR)/backuprecovery client
 
-all: client recovery
+all: client recovery migrateTablet

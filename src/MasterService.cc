@@ -1054,6 +1054,10 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
         WireFormat::MigrateTablet::Response* respHdr,
         Rpc* rpc)
 {
+    uint64_t start = Cycles::rdtsc();
+    uint64_t inittime = start;
+    uint64_t now;
+    double elapsed;
     uint64_t tableId = reqHdr->tableId;
     uint64_t firstKeyHash = reqHdr->firstKeyHash;
     uint64_t lastKeyHash = reqHdr->lastKeyHash;
@@ -1074,6 +1078,10 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
         respHdr->common.status = STATUS_UNKNOWN_TABLET;
         return;
     }
+    now = Cycles::rdtsc();
+    elapsed = Cycles::toMicroseconds(now - start);
+    start = now;
+    LOG(WARNING, "Time elapsed from start of migrateservice::migrateTablet in finding tablet %.2f microseconds", elapsed);
 
     if (receiver == serverId) {
         LOG(WARNING, "Migrating to myself doesn't make much sense");
@@ -1089,8 +1097,21 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
 
     MasterClient::prepForMigration(context, receiver, tableId,
             firstKeyHash, lastKeyHash);
+    now = Cycles::rdtsc();
+    elapsed = Cycles::toMicroseconds(now - start);
+    start = now;
+    LOG(WARNING, "Time elapsed in prepForMigration %.2f microseconds", elapsed);
+
+
     LogPosition newOwnerLogHead = MasterClient::getHeadOfLog(
             context, receiver);
+
+    now = Cycles::rdtsc();
+    elapsed = Cycles::toMicroseconds(now - start);
+    start = now;
+    LOG(WARNING, "Time elapsed in getHeadofLog %.2f microseconds", elapsed);
+
+
 
     LOG(NOTICE, "Migrating tablet [0x%lx,0x%lx] in tableId %lu to %s",
         firstKeyHash, lastKeyHash, tableId,
@@ -1119,6 +1140,11 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
             it.next();
         }
     }
+    now = Cycles::rdtsc();
+    elapsed = Cycles::toMicroseconds(now - start);
+    start = now;
+    LOG(WARNING, "Time elapsed in Phase 1 Scan %.2f microseconds", elapsed);
+
 
     // Phase 2: block new writes and let current writes finish
     if (it.onHead()) {
@@ -1128,6 +1154,15 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
         // Wait for the remainder of already running writes to finish.
         LogProtector::wait(context, Transport::ServerRpc::APPEND_ACTIVITY);
     }
+    now = Cycles::rdtsc();
+    elapsed = Cycles::toMicroseconds(now - start);
+    start = now;
+    LOG(WARNING, "Time elapsed in Phase 2 block writes and wait %.2f microseconds", elapsed);
+
+
+
+
+
 
     // Phase 3: finish iterating over the remaining log entries.
     while (true) {
@@ -1141,6 +1176,11 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
                 receiver);
         if (error) return;
     }
+    now = Cycles::rdtsc();
+    elapsed = Cycles::toMicroseconds(now - start);
+    start = now;
+    LOG(WARNING, "Time elapsed in Phase 3 iterating remaining and wait %.2f microseconds", elapsed);
+
 
     if (transferSeg) {
         transferSeg->close();
@@ -1148,6 +1188,12 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
         MasterClient::receiveMigrationData(context, receiver,
                 transferSeg.get(), tableId, firstKeyHash);
         transferSeg.destroy();
+    now = Cycles::rdtsc();
+    elapsed = Cycles::toMicroseconds(now - start);
+    start = now;
+    LOG(WARNING, "Time elapsed in optional send of last %.2f microseconds", elapsed);
+
+
     }
 
     // Now that all data has been transferred, we can reassign ownership of
@@ -1157,6 +1203,12 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
     CoordinatorClient::reassignTabletOwnership(context,
             tableId, firstKeyHash, lastKeyHash, receiver,
             newOwnerLogHead.getSegmentId(), newOwnerLogHead.getSegmentOffset());
+    now = Cycles::rdtsc();
+    elapsed = Cycles::toMicroseconds(now - start);
+    start = now;
+    LOG(WARNING, "Time elapsed in reassign ownership %.2f microseconds", elapsed);
+
+
 
     LOG(NOTICE, "Migration succeeded for tablet [0x%lx,0x%lx] in "
             "tableId %lu; sent %lu objects and %lu tombstones to %s, "
@@ -1180,6 +1232,14 @@ MasterService::migrateTablet(const WireFormat::MigrateTablet::Request* reqHdr,
 
     // Removed unnecessary prepared transaction operations.
     transactionManager.removeOrphanedOps();
+    now = Cycles::rdtsc();
+    elapsed = Cycles::toMicroseconds(now - start);
+    start = now;
+    LOG(WARNING, "Time elapsed in housekeeping %.2f microseconds", elapsed);
+
+    elapsed = Cycles::toMicroseconds(now - inittime);
+
+    LOG(WARNING, "Time elapsed in total for migrateTablet %.2f microseconds", elapsed);
 }
 
 /**
