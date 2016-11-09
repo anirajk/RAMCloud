@@ -124,7 +124,8 @@ class RecoverSegmentBenchmark {
             s->getAppendedLength(&certificate);
             const void* contigSeg = buffer.getRange(0, buffer.size());
             SegmentIterator it(contigSeg, buffer.size(), certificate);
-            service->objectManager.replaySegment(&sideLog, it);
+	    ObjectManager::TombstoneProtector p(&service->objectManager);
+    	    service->objectManager.replaySegment(&sideLog, it);
         }
         uint64_t ticks = Cycles::rdtsc() - before;
 
@@ -203,14 +204,16 @@ if (metrics->temp.count##i.load()) { \
 int
 main()
 {
-    int numSegments = 600 / 8; // = 72.
-    int dataLen[] = { 64, 128, 256, 512, 1024, 2048, 8192, 0 };
-
-    for (int i = 0; dataLen[i] != 0; i++) {
+//    int numSegments = 600 / 8; // = 72.
+    //int dataLen[] = { 64, 128, 256, 512, 1024, 2048, 8192, 0 };
+    int dataLen = 128;
+    int numSegments[] = {75,0,150,300,500};
+    for (int i = 0; numSegments[i] != 0; i++) {
         printf("==========================\n");
-        RAMCloud::RecoverSegmentBenchmark rsb("2048", "10%", numSegments);
-        rsb.run(numSegments, dataLen[i]);
+        RAMCloud::RecoverSegmentBenchmark rsb("2048", "10%", numSegments[i]);
+        rsb.run(numSegments[i], dataLen);
     }
 
     return 0;
 }
+
